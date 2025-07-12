@@ -1,0 +1,47 @@
+name: Deploy So Martinik
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.0.0   # action officielle
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: MYSQL_ROOT_PASSWORD,MYSQL_PASSWORD,ADMIN_PASSWORD
+          script: |
+            set -e
+            # 1) pré-requis (installés une fois)
+            command -v docker >/dev/null 2>&1 || curl -fsSL https://get.docker.com | sh
+            command -v docker-compose >/dev/null 2>&1 || \
+              (apt-get update -y && apt-get install -y docker-compose-plugin)   # :contentReference[oaicite:1]{index=1}
+
+            # 2) code applicatif
+            if [ -d /srv/somartinik-infra ]; then
+              cd /srv/somartinik-infra && git pull
+            else
+              git clone https://github.com/${{ github.repository }} /srv/somartinik-infra
+            fi
+            cd /srv/somartinik-infra
+
+            # 3) crée/écrase le .env avec les SECRETS GitHub
+            cat > .env <<EOF
+MYSQL_ROOT_PASSWORD=${{ env.MYSQL_ROOT_PASSWORD }}
+MYSQL_PASSWORD=${{ env.MYSQL_PASSWORD }}
+ADMIN_PASSWORD=${{ env.ADMIN_PASSWORD }}
+EOF
+
+            # 4) déploiement
+            docker compose pull
+            docker compose up -d --remove-orphans
