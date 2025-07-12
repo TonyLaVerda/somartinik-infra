@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  db:
+    image: mariadb:11
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: humhub
+      MYSQL_USER: humhub
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+
+  humhub:
+    image: mriedmann/humhub:1.17.1-nginx          # dernière 1.17.x
+    ports:
+      - "53333:80"
+    depends_on:
+      - db
+    environment:
+      HUMHUB_DB_NAME: humhub
+      HUMHUB_DB_USER: humhub
+      HUMHUB_DB_PASSWORD: ${MYSQL_PASSWORD}
+      HUMHUB_ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+    volumes:
+      - uploads:/app/protected/uploads
+      - themes:/app/themes
+
+volumes:
+  db_data:
+  uploads:
+  themes:
